@@ -86,6 +86,7 @@ public class XLSX2CSV {
             }
         }
 
+        @Override
         public void startRow(int rowNum) {
             // If there were gaps, output the missing rows
             outputMissingRows(rowNum-currentRow-1);
@@ -95,6 +96,7 @@ public class XLSX2CSV {
             currentCol = -1;
         }
 
+        @Override
         public void endRow(int rowNum) {
             // Ensure the minimum number of columns
             for (int i=currentCol; i<minColumns; i++) {
@@ -103,6 +105,7 @@ public class XLSX2CSV {
             output.append('\n');
         }
 
+        @Override
         public void cell(String cellReference, String formattedValue,
                          XSSFComment comment) {
             if (firstCellOfRow) {
@@ -134,6 +137,11 @@ public class XLSX2CSV {
                 output.append(formattedValue);
                 output.append('"');
             }
+        }
+
+        @Override
+        public void headerFooter(String s, boolean b, String s1) {
+
         }
     }
 
@@ -173,7 +181,7 @@ public class XLSX2CSV {
      * @param strings The table of strings that may be referenced by cells in the sheet
      * @param sheetInputStream The stream to read the sheet-data from.
 
-     * @exception java.io.IOException An IO exception from the parser,
+     * @exception IOException An IO exception from the parser,
      *            possibly from a byte stream or character stream
      *            supplied by the application.
      * @throws SAXException if parsing the XML data fails.
@@ -206,11 +214,11 @@ public class XLSX2CSV {
         ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(this.xlsxPackage);
         XSSFReader xssfReader = new XSSFReader(this.xlsxPackage);
         StylesTable styles = xssfReader.getStylesTable();
-        XSSFReader.SheetIterator iterss = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+        XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
         int index = 0;
-        while (iterss.hasNext()) {
-            try (InputStream stream = iterss.next()) {
-                String sheetName = iterss.getSheetName();
+        while (iter.hasNext()) {
+            try (InputStream stream = iter.next()) {
+                String sheetName = iter.getSheetName();
                 this.output.println();
                 this.output.println(sheetName + " [index=" + index + "]:");
                 processSheet(styles, strings, new SheetToCSV(), stream);
