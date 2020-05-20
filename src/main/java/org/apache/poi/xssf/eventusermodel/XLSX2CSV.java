@@ -1,4 +1,4 @@
-/* ====================================================================
+package org.apache.poi.xssf.eventusermodel;/* ====================================================================
    Licensed to the Apache Software Foundation (ASF) under one or more
    contributor license agreements.  See the NOTICE file distributed with
    this work for additional information regarding copyright ownership.
@@ -15,14 +15,13 @@
    limitations under the License.
 ==================================================================== */
 
-package org.apache.poi.xssf.eventusermodel;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintStream;
 
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParserFactory;
 
 import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
@@ -31,10 +30,11 @@ import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.util.CellAddress;
 import org.apache.poi.ss.util.CellReference;
 import org.apache.poi.util.XMLHelper;
+import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
+import org.apache.poi.xssf.eventusermodel.XSSFReader;
+import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler;
 import org.apache.poi.xssf.extractor.XSSFEventBasedExcelExtractor;
-import org.apache.poi.xssf.model.SharedStrings;
-import org.apache.poi.xssf.model.Styles;
 import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.usermodel.XSSFComment;
 import org.xml.sax.ContentHandler;
@@ -147,6 +147,7 @@ public class XLSX2CSV {
 
 
     ///////////////////////////////////////
+    private final SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 
     private final OPCPackage xlsxPackage;
 
@@ -187,14 +188,14 @@ public class XLSX2CSV {
      * @throws SAXException if parsing the XML data fails.
      */
     public void processSheet(
-            Styles styles,
-            SharedStrings strings,
+            StylesTable styles,
+            ReadOnlySharedStringsTable strings,
             SheetContentsHandler sheetHandler,
             InputStream sheetInputStream) throws IOException, SAXException {
         DataFormatter formatter = new DataFormatter();
         InputSource sheetSource = new InputSource(sheetInputStream);
         try {
-            XMLReader sheetParser = XMLHelper.newXMLReader();
+            XMLReader sheetParser = saxParserFactory.newSAXParser().getXMLReader();
             ContentHandler handler = new XSSFSheetXMLHandler(
                     styles, null, strings, sheetHandler, formatter, false);
             sheetParser.setContentHandler(handler);
