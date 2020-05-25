@@ -35,8 +35,10 @@ import org.apache.poi.xssf.eventusermodel.XSSFReader;
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
 import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler;
 import org.apache.poi.xssf.extractor.XSSFEventBasedExcelExtractor;
+import org.apache.poi.xssf.model.CommentsTable;
 import org.apache.poi.xssf.model.StylesTable;
 import org.apache.poi.xssf.usermodel.XSSFComment;
+import org.apache.xmlbeans.XmlException;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
@@ -191,15 +193,24 @@ public class XLSX2CSV {
             StylesTable styles,
             ReadOnlySharedStringsTable strings,
             SheetContentsHandler sheetHandler,
-            InputStream sheetInputStream) throws IOException, SAXException {
+            InputStream sheetInputStream) throws IOException, SAXException, OpenXML4JException, XmlException {
         DataFormatter formatter = new DataFormatter();
         InputSource sheetSource = new InputSource(sheetInputStream);
         try {
-            XMLReader sheetParser = saxParserFactory.newSAXParser().getXMLReader();
+            /*XMLReader sheetParser = saxParserFactory.newSAXParser().getXMLReader();
             ContentHandler handler = new XSSFSheetXMLHandler(
-                    styles, null, strings, sheetHandler, formatter, false);
+                    styles, null, strings, sheetHandler, formatter, true);
             sheetParser.setContentHandler(handler);
-            sheetParser.parse(sheetSource);
+            sheetParser.parse(sheetSource);*/
+
+            XSSFEventBasedExcelExtractor extractor = new XSSFEventBasedExcelExtractor(this.xlsxPackage);
+            extractor.processSheet(sheetHandler,
+                    styles,
+                    new CommentsTable(),
+                    new ReadOnlySharedStringsTable(this.xlsxPackage),
+                    sheetInputStream);
+
+            XMLReader sheetParser = saxParserFactory.newSAXParser().getXMLReader();
         } catch(ParserConfigurationException e) {
             throw new RuntimeException("SAX parser appears to be broken - " + e.getMessage());
         }
@@ -211,7 +222,7 @@ public class XLSX2CSV {
      * @throws IOException If reading the data from the package fails.
      * @throws SAXException if parsing the XML data fails.
      */
-    public void process() throws IOException, OpenXML4JException, SAXException {
+    public void process() throws IOException, OpenXML4JException, SAXException, XmlException {
         ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(this.xlsxPackage);
         XSSFReader xssfReader = new XSSFReader(this.xlsxPackage);
         StylesTable styles = xssfReader.getStylesTable();
@@ -223,8 +234,8 @@ public class XLSX2CSV {
                 this.output.println();
                 this.output.println(sheetName + " [index=" + index + "]:");
                 processSheet(styles, strings, new SheetToCSV(), stream);
+                ++index;
             }
-            ++index;
         }
     }
 
