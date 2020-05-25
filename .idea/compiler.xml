@@ -9,7 +9,7 @@
         <module name="excel-loader" />
       </profile>
     </annotationProcessing>
-    <bytecodeTargetLevel>
+    <bytecodeTargetLevel target="11">
       <module name="excel-loader" target="1.11" />
     </bytecodeTargetLevel>
   </component>
