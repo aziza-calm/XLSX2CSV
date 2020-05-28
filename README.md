@@ -5,4 +5,4 @@ Creates csv from xlsx file.
 
 ## Tests
 
-![from](/img/xl.PNG) ![to](img/csv.PNG)
+![from](/img/xl.PNG)  ====>  ![to](img/csv.PNG)
