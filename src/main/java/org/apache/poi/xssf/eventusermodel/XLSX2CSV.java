@@ -16,10 +16,7 @@ package org.apache.poi.xssf.eventusermodel;
    limitations under the License.
 ==================================================================== */
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParserFactory;
@@ -259,7 +256,7 @@ public class XLSX2CSV {
 
         // The package open is instantaneous, as it should be.
         try (OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ)) {
-            XLSX2CSV xlsx2csv = new XLSX2CSV(p, System.out, minColumns);
+            XLSX2CSV xlsx2csv = new XLSX2CSV(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("2.txt")), true), minColumns);
             xlsx2csv.process();
         }
     }

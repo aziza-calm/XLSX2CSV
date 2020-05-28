@@ -1,9 +1,6 @@
 package org.apache.poi.xssf.eventusermodel;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
+import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -177,8 +174,8 @@ java.lang.String)
 
                     case DATETIME:
                         // Days to left of decimal, seconds (?) to right of decimal.
-                        Date dt = DateUtil.getJavaDate(Double.parseDouble(contents.toString()));
-                        thisStr = '"' + dt.toString() + '"';
+//                        Date dt = DateUtil.getJavaDate(Double.parseDouble(contents.toString()));
+                        thisStr = '"' + contents.toString() + '"';
                         break;
 
                     case SSTINDEX:
@@ -323,10 +320,8 @@ java.lang.String)
             String sheetName = iter.getSheetName();
             this.output.println();
             this.output.println(sheetName + " [index=" + index + "]:");
-            if (sheetName.contentEquals("Раздел 1"))  {
-                processSheet(sst, stream);
-            }
-            stream.close();
+            processSheet(sst, stream);
+            // stream.close();
             ++index;
         }
     }
@@ -362,7 +357,7 @@ java.lang.String)
 
         // The package open is instantaneous, as it should be.
         OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
-        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, System.out, minColumns);
+        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("xl_test.txt")), true), minColumns);
         xlsx2csv.process();
         // Want to call close() here, but the package is open for read,
         // so it's not necessary, and it complains if I do call it!
