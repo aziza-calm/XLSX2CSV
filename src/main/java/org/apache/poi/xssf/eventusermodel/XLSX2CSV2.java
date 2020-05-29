@@ -3,6 +3,7 @@ package org.apache.poi.xssf.eventusermodel;
 import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.Optional;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -25,6 +26,8 @@ import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.DefaultHandler;
+
+import static org.apache.poi.xslf.usermodel.XSLFTableStyle.TablePartStyle.firstRow;
 
 /**
  * A rudimentary XLSX -> CSV processor
@@ -116,6 +119,7 @@ java.lang.String, org.xml.sax.Attributes)
                     }
                 }
                 currentRow = Integer.parseInt(r.substring(firstDigit));
+                if (firstRow.isPresent() && currentRow < firstRow.get()) { return; }
                 System.out.println(currentRow);
             }
             // c => cell
@@ -287,6 +291,9 @@ java.lang.String)
     private OPCPackage xlsxPackage;
     private int minColumns;
     private PrintStream output;
+    private Optional<Integer> firstRow;
+    private int lastRow;
+    private String sheetRegExp;
 
     /**
      * Creates a new XLSX -> CSV converter
@@ -301,6 +308,13 @@ java.lang.String)
         this.xlsxPackage = pkg;
         this.output = output;
         this.minColumns = minColumns;
+    }
+
+    public XLSX2CSV2(OPCPackage pkg, PrintStream output, int minColumns, Optional<Integer> firstRow) {
+        this.xlsxPackage = pkg;
+        this.output = output;
+        this.minColumns = minColumns;
+        if (firstRow.isPresent()) { this.firstRow = firstRow; }
     }
 
     /**
@@ -372,7 +386,7 @@ java.lang.String)
 
         // The package open is instantaneous, as it should be.
         OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
-        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns);
+        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns, Optional.of(5));
         xlsx2csv.process();
         // Want to call close() here, but the package is open for read,
         // so it's not necessary, and it complains if I do call it!
