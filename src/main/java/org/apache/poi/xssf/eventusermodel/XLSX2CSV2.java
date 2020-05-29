@@ -119,9 +119,9 @@ java.lang.String, org.xml.sax.Attributes)
                     }
                 }
                 currentRow = Integer.parseInt(r.substring(firstDigit));
-                if (firstRow.isPresent() && currentRow < firstRow.get()) { return; }
-                System.out.println(currentRow);
             }
+            if (firstRow.isPresent() && currentRow < firstRow.get()) { return; }
+//            System.out.println(currentRow);
             // c => cell
             if ("c".equals(name)) {
                 // Get the cell reference
@@ -171,7 +171,7 @@ java.lang.String)
                 throws SAXException {
 
             String thisStr = null;
-
+            if (firstRow.isPresent() && currentRow < firstRow.get()) { return; }
             // v => contents of a cell
             if ("v".equals(name)) {
                 // Process the value contents as required.
