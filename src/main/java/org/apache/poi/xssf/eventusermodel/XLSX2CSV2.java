@@ -34,6 +34,7 @@ import org.xml.sax.helpers.DefaultHandler;
  * Unlike the HSSF version, this one completely ignores missing rows.
  */
 public class XLSX2CSV2 {
+    public int currentRow = -1;
 
     /**
      * The type of the data value is indicated by an attribute on
@@ -116,6 +117,9 @@ java.lang.String, org.xml.sax.Attributes)
                         break;
                     }
                 }
+                currentRow = Integer.parseInt(r.substring(firstDigit));
+                System.out.println(currentRow);
+
                 thisColumn = nameToColumn(r.substring(0, firstDigit));
 
                 // Figure out if the value is an index in the SST
@@ -258,6 +262,7 @@ java.lang.String)
          */
         private int nameToColumn(String name) {
             int column = -1;
+//            System.out.println(name);
             for (int i = 0; i < name.length(); ++i) {
                 int c = name.charAt(i);
                 column = (column + 1) * 26 + c - 'A';
@@ -357,7 +362,7 @@ java.lang.String)
 
         // The package open is instantaneous, as it should be.
         OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
-        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("xl_test.txt")), true), minColumns);
+        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns);
         xlsx2csv.process();
         // Want to call close() here, but the package is open for read,
         // so it's not necessary, and it complains if I do call it!
