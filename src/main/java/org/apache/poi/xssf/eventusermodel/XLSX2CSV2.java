@@ -34,7 +34,6 @@ import org.xml.sax.helpers.DefaultHandler;
  * Unlike the HSSF version, this one completely ignores missing rows.
  */
 public class XLSX2CSV2 {
-    public int currentRow = -1;
 
     /**
      * The type of the data value is indicated by an attribute on
@@ -54,6 +53,7 @@ public class XLSX2CSV2 {
      * Derived from http://poi.apache.org/spreadsheet/how-to.html#xssf_sax_api
      */
     class MyXSSFSheetHandler extends DefaultHandler {
+        public int currentRow = -1;
 
         /** Table with unique strings */
         private ReadOnlySharedStringsTable sharedStringsTable;
@@ -105,9 +105,7 @@ java.lang.String, org.xml.sax.Attributes)
          */
         public void startElement(String uri, String localName, String name,
                                  Attributes attributes) throws SAXException {
-
-            // c => cell
-            if ("c".equals(name)) {
+            if("row".equals(name)) {
                 // Get the cell reference
                 String r = attributes.getValue("r");
                 int firstDigit = -1;
@@ -119,6 +117,18 @@ java.lang.String, org.xml.sax.Attributes)
                 }
                 currentRow = Integer.parseInt(r.substring(firstDigit));
                 System.out.println(currentRow);
+            }
+            // c => cell
+            if ("c".equals(name)) {
+                // Get the cell reference
+                String r = attributes.getValue("r");
+                int firstDigit = -1;
+                for (int c = 0; c < r.length(); ++c) {
+                    if (Character.isDigit(r.charAt(c))) {
+                        firstDigit = c;
+                        break;
+                    }
+                }
 
                 thisColumn = nameToColumn(r.substring(0, firstDigit));
 
