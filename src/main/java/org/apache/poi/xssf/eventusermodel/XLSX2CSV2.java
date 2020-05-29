@@ -120,8 +120,9 @@ java.lang.String, org.xml.sax.Attributes)
                 }
                 currentRow = Integer.parseInt(r.substring(firstDigit));
             }
-            if (firstRow.isPresent() && currentRow < firstRow.get()) { return; }
-//            System.out.println(currentRow);
+            System.out.println(firstRow.orElse(1) + "\t" + currentRow);
+            if (firstRow.orElse(1) > currentRow) { return; }
+            System.out.println(currentRow);
             // c => cell
             if ("c".equals(name)) {
                 // Get the cell reference
@@ -386,7 +387,7 @@ java.lang.String)
 
         // The package open is instantaneous, as it should be.
         OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
-        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns, Optional.of(5));
+        XLSX2CSV2 xlsx2csv = new XLSX2CSV2(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns, Optional.ofNullable(5));
         xlsx2csv.process();
         // Want to call close() here, but the package is open for read,
         // so it's not necessary, and it complains if I do call it!
