@@ -4,6 +4,8 @@ import java.io.*;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.parsers.SAXParser;
@@ -347,9 +349,20 @@ java.lang.String)
         while (iter.hasNext()) {
             InputStream stream = iter.next();
             String sheetName = iter.getSheetName();
-            this.output.println();
-            this.output.println(sheetName + " [index=" + index + "]:");
-            processSheet(sst, stream);
+            if (this.sheetRegExp.isPresent()) {
+                Pattern pattern = Pattern.compile(this.sheetRegExp.get());
+                Matcher matcher = pattern.matcher(sheetName);
+                if (matcher.find()) {
+                    this.output.println();
+                    this.output.println(sheetName + " [index=" + index + "]:");
+                    processSheet(sst, stream);
+                }
+            }
+            else {
+                this.output.println();
+                this.output.println(sheetName + " [index=" + index + "]:");
+                processSheet(sst, stream);
+            }
             // stream.close();
             ++index;
         }
@@ -388,7 +401,7 @@ java.lang.String)
         OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
         Optional<Integer> firstRow = Optional.ofNullable(5);
         Optional<Integer> lastRow = Optional.ofNullable(13);
-        Optional<String> sheetRegExp = Optional.ofNullable("");
+        Optional<String> sheetRegExp = Optional.ofNullable("Sheet1");
         XLSX2CSV xlsx2csv = new XLSX2CSV(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns, firstRow, lastRow, sheetRegExp);
         xlsx2csv.process();
         // Want to call close() here, but the package is open for read,
