@@ -28,7 +28,7 @@ Optional<String> sheetRegExp = Optional.ofNullable(null);
 ```
 Работает. Обрабатываются все строки и листы в исходном xlsx файле.
 
-* Обычные целые числа, не выходящие из диапазона строк в исходном файле
+* Целые числа, не выходящие из диапазона строк в исходном файле
 ```
 Optional<Integer> firstRow = Optional.ofNullable(3);
 Optional<Integer> lastRow = Optional.ofNullable(9);
