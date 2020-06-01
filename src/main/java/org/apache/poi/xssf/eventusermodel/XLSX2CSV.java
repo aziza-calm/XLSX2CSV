@@ -399,9 +399,9 @@ java.lang.String)
 
         // The package open is instantaneous, as it should be.
         OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
-        Optional<Integer> firstRow = Optional.ofNullable(5);
-        Optional<Integer> lastRow = Optional.ofNullable(13);
-        Optional<String> sheetRegExp = Optional.ofNullable("Sheet1");
+        Optional<Integer> firstRow = Optional.ofNullable(null);
+        Optional<Integer> lastRow = Optional.ofNullable(null);
+        Optional<String> sheetRegExp = Optional.ofNullable(null);
         XLSX2CSV xlsx2csv = new XLSX2CSV(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns, firstRow, lastRow, sheetRegExp);
         xlsx2csv.process();
         // Want to call close() here, but the package is open for read,
