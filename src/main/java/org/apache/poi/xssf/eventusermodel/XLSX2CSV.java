@@ -1,171 +1,304 @@
 package org.apache.poi.xssf.eventusermodel;
-/* ====================================================================
-   Licensed to the Apache Software Foundation (ASF) under one or more
-   contributor license agreements.  See the NOTICE file distributed with
-   this work for additional information regarding copyright ownership.
-   The ASF licenses this file to You under the Apache License, Version 2.0
-   (the "License"); you may not use this file except in compliance with
-   the License.  You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-   Unless required by applicable law or agreed to in writing, software
-   distributed under the License is distributed on an "AS IS" BASIS,
-   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-   See the License for the specific language governing permissions and
-   limitations under the License.
-==================================================================== */
 
 import java.io.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Optional;
 
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.parsers.SAXParser;
 import javax.xml.parsers.SAXParserFactory;
 
+import org.apache.log4j.BasicConfigurator;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.apache.poi.openxml4j.exceptions.OpenXML4JException;
 import org.apache.poi.openxml4j.opc.OPCPackage;
 import org.apache.poi.openxml4j.opc.PackageAccess;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.util.CellAddress;
-import org.apache.poi.ss.util.CellReference;
-import org.apache.poi.util.XMLHelper;
-import org.apache.poi.xssf.eventusermodel.ReadOnlySharedStringsTable;
-import org.apache.poi.xssf.eventusermodel.XSSFReader;
-import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler;
-import org.apache.poi.xssf.eventusermodel.XSSFSheetXMLHandler.SheetContentsHandler;
-import org.apache.poi.xssf.extractor.XSSFEventBasedExcelExtractor;
-import org.apache.poi.xssf.model.CommentsTable;
-import org.apache.poi.xssf.model.StylesTable;
-import org.apache.poi.xssf.usermodel.XSSFComment;
-import org.apache.xmlbeans.XmlException;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.xssf.usermodel.XSSFRichTextString;
+import org.xml.sax.Attributes;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 import org.xml.sax.XMLReader;
+import org.xml.sax.helpers.DefaultHandler;
 
 /**
- * A rudimentary XLSX -> CSV processor modeled on the
- * POI sample program XLS2CSVmra from the package
- * org.apache.poi.hssf.eventusermodel.examples.
- * As with the HSSF version, this tries to spot missing
- *  rows and cells, and output empty entries for them.
- * <p>
- * Data sheets are read using a SAX parser to keep the
- * memory footprint relatively small, so this should be
- * able to read enormous workbooks.  The styles table and
- * the shared-string table must be kept in memory.  The
- * standard POI styles table class is used, but a custom
- * (read-only) class is used for the shared string table
- * because the standard POI SharedStringsTable grows very
- * quickly with the number of unique strings.
- * <p>
- * For a more advanced implementation of SAX event parsing
- * of XLSX files, see {@link XSSFEventBasedExcelExtractor}
- * and {@link XSSFSheetXMLHandler}. Note that for many cases,
- * it may be possible to simply use those with a custom
- * {@link SheetContentsHandler} and no SAX code needed of
- * your own!
+ * A rudimentary XLSX -> CSV processor
+ * based on XLS2CSVmra by Nick Burch from
+ * package org.apache.poi.hssf.eventusermodel.examples.
+ * This is an attempt to demonstrate the same thing using XSSF.
+ * Unlike the HSSF version, this one completely ignores missing rows.
  */
-@SuppressWarnings({"java:S106","java:S4823","java:S1192"})
 public class XLSX2CSV {
+
     /**
-     * Uses the XSSF Event SAX helpers to do most of the work
-     *  of parsing the Sheet XML, and outputs the contents
-     *  as a (basic) CSV.
+     * The type of the data value is indicated by an attribute on
+     * the cell element; the value is in a "v" element within the cell.
      */
-    private class SheetToCSV implements SheetContentsHandler {
-        private boolean firstCellOfRow;
-        private int currentRow = -1;
-        private int currentCol = -1;
-
-        private void outputMissingRows(int number) {
-            for (int i=0; i<number; i++) {
-                for (int j=0; j<minColumns; j++) {
-                    output.append(',');
-                }
-                output.append('\n');
-            }
-        }
-
-        @Override
-        public void startRow(int rowNum) {
-            // If there were gaps, output the missing rows
-            outputMissingRows(rowNum-currentRow-1);
-            // Prepare for this row
-            firstCellOfRow = true;
-            currentRow = rowNum;
-            currentCol = -1;
-        }
-
-        @Override
-        public void endRow(int rowNum) {
-            // Ensure the minimum number of columns
-            for (int i=currentCol; i<minColumns; i++) {
-                output.append(',');
-            }
-            output.append('\n');
-        }
-
-        @Override
-        public void cell(String cellReference, String formattedValue,
-                         XSSFComment comment) {
-            if (firstCellOfRow) {
-                firstCellOfRow = false;
-            } else {
-                output.append(',');
-            }
-
-            // gracefully handle missing CellRef here in a similar way as XSSFCell does
-            if(cellReference == null) {
-                cellReference = new CellAddress(currentRow, currentCol).formatAsString();
-            }
-
-            // Did we miss any cells?
-            int thisCol = (new CellReference(cellReference)).getCol();
-            int missedCols = thisCol - currentCol - 1;
-            for (int i=0; i<missedCols; i++) {
-                output.append(',');
-            }
-            currentCol = thisCol;
-
-            // Number or string?
-            try {
-                //noinspection ResultOfMethodCallIgnored
-                Double.parseDouble(formattedValue);
-                output.append(formattedValue);
-            } catch (NumberFormatException e) {
-                output.append('"');
-                output.append(formattedValue);
-                output.append('"');
-            }
-        }
-
-        @Override
-        public void headerFooter(String s, boolean b, String s1) {
-
-        }
+    enum xssfDataType {
+        BOOL,
+        DATE,
+        DATETIME,
+        FORMULA,
+        SSTINDEX,
+        TIME,
+        NUMBER,
     }
 
+    /**
+     * Derived from http://poi.apache.org/spreadsheet/how-to.html#xssf_sax_api
+     */
+    class MyXSSFSheetHandler extends DefaultHandler {
+        public int currentRow = -1;
+
+        /** Table with unique strings */
+        private ReadOnlySharedStringsTable sharedStringsTable;
+
+        /** Destination for data */
+        private final PrintStream output;
+
+        /** Number of columns to read starting with leftmost */
+        private final int minColumnCount;
+
+        // Runtime
+        SimpleDateFormat simpleDateFormat = new SimpleDateFormat("M/d/yyyy");
+        SimpleDateFormat simpleTimeFormat = new SimpleDateFormat("hh:mm:ss a");
+
+        // Set when V start element is seen
+        private boolean vIsOpen;
+
+        // Set when cell start element is seen;
+        // used when cell close element is seen.
+        private xssfDataType nextDataType;
+
+        private int thisColumn = -1;
+        // The last column printed to the output stream
+        private int lastColumnNumber = -1;
+
+        private StringBuffer contents;
+
+        /**
+         *
+         * @param sst
+         * @param cols
+         * @param target
+         */
+        public MyXSSFSheetHandler(
+                ReadOnlySharedStringsTable sst,
+                int cols,
+                PrintStream target) {
+            this.sharedStringsTable = sst;
+            this.minColumnCount = cols;
+            this.output = target;
+            this.contents = new StringBuffer();
+            this.nextDataType = xssfDataType.NUMBER;
+        }
+
+        /*
+         * (non-Javadoc)
+         * @see org.xml.sax.helpers.DefaultHandler#startElement(java.lang.String, java.lang.String,
+java.lang.String, org.xml.sax.Attributes)
+         */
+        public void startElement(String uri, String localName, String name,
+                                 Attributes attributes) throws SAXException {
+            if("row".equals(name)) {
+                // Get the cell reference
+                String r = attributes.getValue("r");
+                int firstDigit = -1;
+                for (int c = 0; c < r.length(); ++c) {
+                    if (Character.isDigit(r.charAt(c))) {
+                        firstDigit = c;
+                        break;
+                    }
+                }
+                currentRow = Integer.parseInt(r.substring(firstDigit));
+            }
+//            System.out.println(firstRow.orElse(1) + "\t" + currentRow);
+            if (firstRow.orElse(1) > currentRow) { return; }
+            if (lastRow.isPresent() && lastRow.get() < currentRow) { return; }
+            // c => cell
+            if ("c".equals(name)) {
+                // Get the cell reference
+                String r = attributes.getValue("r");
+                int firstDigit = -1;
+                for (int c = 0; c < r.length(); ++c) {
+                    if (Character.isDigit(r.charAt(c))) {
+                        firstDigit = c;
+                        break;
+                    }
+                }
+
+                thisColumn = nameToColumn(r.substring(0, firstDigit));
+
+                // Figure out if the value is an index in the SST
+                // or something else.
+                String cellType = attributes.getValue("t");
+                String cellSomething = attributes.getValue("s");
+                if ("b".equals(cellType))
+                    nextDataType = xssfDataType.BOOL;
+                else if ("e".equals(cellType))
+                    nextDataType = xssfDataType.FORMULA;
+                else if ("s".equals(cellType))
+                    nextDataType = xssfDataType.SSTINDEX;
+                else if ("2".equals(cellSomething))
+                    nextDataType = xssfDataType.DATE;
+                else if ("3".equals(cellSomething))
+                    nextDataType = xssfDataType.TIME;
+                else if ("4".equals(cellSomething))
+                    nextDataType = xssfDataType.DATETIME;
+                else
+                    nextDataType = xssfDataType.NUMBER;
+            }
+            else if ("v".equals(name)) {
+                vIsOpen = true;
+                // Clear contents cache
+                contents.setLength(0);
+            }
+        }
+
+        /*
+         * (non-Javadoc)
+         * @see org.xml.sax.helpers.DefaultHandler#endElement(java.lang.String, java.lang.String,
+java.lang.String)
+         */
+        public void endElement(String uri, String localName, String name)
+                throws SAXException {
+
+            String thisStr = null;
+            if (firstRow.isPresent() && currentRow < firstRow.get()) { return; }
+            if (lastRow.isPresent() && lastRow.get() < currentRow) { return; }
+            // v => contents of a cell
+            if ("v".equals(name)) {
+                // Process the value contents as required.
+                // Do now, as characters() may be called more than once
+                switch(nextDataType) {
+
+                    case BOOL:
+                        char first = contents.charAt(0);
+                        thisStr = first == '0' ? "FALSE" : "TRUE";
+                        break;
+
+                    case DATE:
+                        // The value is actually an integer
+                        long daysSince = Long.parseLong(contents.toString());
+                        Date d = DateUtil.getJavaDate(daysSince);
+                        thisStr = '"' + simpleDateFormat.format(d) + '"';
+                        break;
+
+                    case DATETIME:
+                        // Days to left of decimal, seconds (?) to right of decimal.
+//                        Date dt = DateUtil.getJavaDate(Double.parseDouble(contents.toString()));
+                        thisStr = '"' + contents.toString() + '"';
+                        break;
+
+                    case SSTINDEX:
+                        String sstIndex = contents.toString();
+                        try {
+                            int idx = Integer.parseInt(sstIndex);
+                            XSSFRichTextString rts = new XSSFRichTextString(sharedStringsTable.getEntryAt(idx));
+                            thisStr = '"' + rts.toString() + '"';
+                        }
+                        catch (NumberFormatException ex) {
+                            output.println("Pgmr err, lastContents is not int: " + sstIndex);
+                        }
+                        break;
+
+                    case TIME:
+                        Date t = DateUtil.getJavaDate(Double.parseDouble(contents.toString()));
+                        thisStr = '"' + simpleTimeFormat.format(t) + '"';
+                        break;
+
+                    case FORMULA:
+                        // A formula could result in a string value,
+                        // so always add doublequote characters.
+                        thisStr = '"' + contents.toString() + '"';
+                        break;
+
+                    case NUMBER:
+                        thisStr = contents.toString();
+                        break;
+
+                    default:
+                        thisStr = "(TODO: Unexpected type: " + nextDataType + ")";
+                        break;
+                }
+
+                // Output after we've seen the string contents
+                // Emit commas for any fields that were missing on this row
+                if(lastColumnNumber == -1) { lastColumnNumber = 0; }
+                for (int i = lastColumnNumber; i < thisColumn; ++i)
+                    output.print(',');
+
+                // Might be the empty string.
+                output.print(thisStr);
+
+                // Update column
+                if(thisColumn > -1)
+                    lastColumnNumber = thisColumn;
+
+            }
+            else if("row".equals(name)) {
+
+                // Print out any missing commas if needed
+                if(minColumns > 0) {
+                    // Columns are 0 based
+                    if(lastColumnNumber == -1) { lastColumnNumber = 0; }
+                    for(int i=lastColumnNumber; i<(this.minColumnCount); i++) {
+                        output.print(',');
+                    }
+                }
+
+                // We're onto a new row
+                output.println();
+                lastColumnNumber = -1;
+            }
+
+        }
+
+        /**
+         * Captures characters only if a v(alue) element is open.
+         */
+        public void characters(char[] ch, int start, int length)
+                throws SAXException {
+            if (vIsOpen)
+                contents.append(ch, start, length);
+        }
+
+        /**
+         * Converts an Excel column name like "C" to a zero-based index.
+         * @param name
+         * @return Index corresponding to the specified name
+         */
+        private int nameToColumn(String name) {
+            int column = -1;
+//            System.out.println(name);
+            for (int i = 0; i < name.length(); ++i) {
+                int c = name.charAt(i);
+                column = (column + 1) * 26 + c - 'A';
+            }
+            return column;
+        }
+
+    }
 
     ///////////////////////////////////////
-    private final SAXParserFactory saxParserFactory = SAXParserFactory.newInstance();
 
-    private final OPCPackage xlsxPackage;
-
-    /**
-     * Number of columns to read starting with leftmost
-     */
-    private final int minColumns;
-
-    /**
-     * Destination for data
-     */
-    private final PrintStream output;
+    private OPCPackage xlsxPackage;
+    private int minColumns;
+    private PrintStream output;
+    private Optional<Integer> firstRow;
+    private Optional<Integer> lastRow;
+    private Optional<String> sheetRegExp;
 
     /**
-     * Creates a new XLSX -> CSV examples
+     * Creates a new XLSX -> CSV converter
+     * Javadoc says I should use OPCPackage instead of Package, but OPCPackage
+     * was not available in the POI 3.5-beta5 build I had at the time.
      *
-     * @param pkg        The XLSX package to process
-     * @param output     The PrintStream to output the CSV to
+     * @param pkg The XLSX package to process
+     * @param output The PrintStream to output the CSV to
      * @param minColumns The minimum number of columns to output, or -1 for no minimum
      */
     public XLSX2CSV(OPCPackage pkg, PrintStream output, int minColumns) {
@@ -174,90 +307,93 @@ public class XLSX2CSV {
         this.minColumns = minColumns;
     }
 
-    /**
-     * Parses and shows the content of one sheet
-     * using the specified styles and shared-strings tables.
-     *
-     * @param styles The table of styles that may be referenced by cells in the sheet
-     * @param strings The table of strings that may be referenced by cells in the sheet
-     * @param sheetInputStream The stream to read the sheet-data from.
-
-     * @exception IOException An IO exception from the parser,
-     *            possibly from a byte stream or character stream
-     *            supplied by the application.
-     * @throws SAXException if parsing the XML data fails.
-     */
-    public void processSheet(
-            StylesTable styles,
-            ReadOnlySharedStringsTable strings,
-            SheetContentsHandler sheetHandler,
-            InputStream sheetInputStream) throws IOException, SAXException, OpenXML4JException, XmlException {
-        DataFormatter formatter = new DataFormatter();
-        InputSource sheetSource = new InputSource(sheetInputStream);
-        try {
-            /*XMLReader sheetParser = saxParserFactory.newSAXParser().getXMLReader();
-            ContentHandler handler = new XSSFSheetXMLHandler(
-                    styles, null, strings, sheetHandler, formatter, true);
-            sheetParser.setContentHandler(handler);
-            sheetParser.parse(sheetSource);*/
-
-            XSSFEventBasedExcelExtractor extractor = new XSSFEventBasedExcelExtractor(this.xlsxPackage);
-            extractor.processSheet(sheetHandler,
-                    styles,
-                    new CommentsTable(),
-                    new ReadOnlySharedStringsTable(this.xlsxPackage),
-                    sheetInputStream);
-
-            XMLReader sheetParser = saxParserFactory.newSAXParser().getXMLReader();
-        } catch(ParserConfigurationException e) {
-            throw new RuntimeException("SAX parser appears to be broken - " + e.getMessage());
-        }
+    public XLSX2CSV(OPCPackage pkg, PrintStream output, int minColumns,
+                    Optional<Integer> firstRow, Optional<Integer> lastRow, Optional<String> sheetRegExp) {
+        this.xlsxPackage = pkg;
+        this.output = output;
+        this.minColumns = minColumns;
+        this.firstRow = firstRow;
+        this.lastRow = lastRow;
+        this.sheetRegExp = sheetRegExp;
     }
 
     /**
-     * Initiates the processing of the XLS workbook file to CSV.
-     *
-     * @throws IOException If reading the data from the package fails.
-     * @throws SAXException if parsing the XML data fails.
+     * @param sst
+     * @param sheetInputStream
      */
-    public void process() throws IOException, OpenXML4JException, SAXException, XmlException {
-        ReadOnlySharedStringsTable strings = new ReadOnlySharedStringsTable(this.xlsxPackage);
+    public void processSheet(ReadOnlySharedStringsTable sst, InputStream sheetInputStream)
+            throws IOException, ParserConfigurationException, SAXException {
+
+        InputSource sheetSource = new InputSource(sheetInputStream);
+        SAXParserFactory saxFactory = SAXParserFactory.newInstance();
+        SAXParser saxParser = saxFactory.newSAXParser();
+        XMLReader sheetParser = saxParser.getXMLReader();
+        ContentHandler handler = new MyXSSFSheetHandler(sst, this.minColumns, this.output);
+        sheetParser.setContentHandler(handler);
+        sheetParser.parse(sheetSource);
+    }
+
+    /**
+     * Initiates the processing of the XLS file to CSV
+     * @throws OpenXML4JException
+     */
+    public void process()
+            throws IOException, OpenXML4JException, ParserConfigurationException, SAXException {
+
+        ReadOnlySharedStringsTable sst = new ReadOnlySharedStringsTable(this.xlsxPackage);
         XSSFReader xssfReader = new XSSFReader(this.xlsxPackage);
-        StylesTable styles = xssfReader.getStylesTable();
-        XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator) xssfReader.getSheetsData();
+        XSSFReader.SheetIterator iter = (XSSFReader.SheetIterator)xssfReader.getSheetsData();
         int index = 0;
         while (iter.hasNext()) {
-            try (InputStream stream = iter.next()) {
-                String sheetName = iter.getSheetName();
-                this.output.println();
-                this.output.println(sheetName + " [index=" + index + "]:");
-                processSheet(styles, strings, new SheetToCSV(), stream);
-                ++index;
-            }
+            InputStream stream = iter.next();
+            String sheetName = iter.getSheetName();
+            this.output.println();
+            this.output.println(sheetName + " [index=" + index + "]:");
+            processSheet(sst, stream);
+            // stream.close();
+            ++index;
         }
     }
 
     public static void main(String[] args) throws Exception {
-        if (args.length < 1) {
+        if(args.length < 1) {
             System.err.println("Use:");
             System.err.println("  XLSX2CSV <xlsx file> [min columns]");
-            return;
+            System.exit(1);
         }
 
         File xlsxFile = new File(args[0]);
-        if (!xlsxFile.exists()) {
+        if (! xlsxFile.exists()) {
             System.err.println("Not found or not a file: " + xlsxFile.getPath());
-            return;
+            System.exit(1);
         }
 
         int minColumns = -1;
-        if (args.length >= 2)
+        if(args.length >= 2) {
             minColumns = Integer.parseInt(args[1]);
+        }
+
+        // If no log4j configuration is provided, these messages appear:
+        //   log4j:WARN No appenders could be found for logger (org.openxml4j.opc).
+        //   log4j:WARN Please initialize the log4j system properly.
+        // If only the BasicConfigurator.configure() is done, these messages appear:
+        //   0 [main] DEBUG org.openxml4j.opc  - Parsing relationship: /xl/_rels/workbook.xml.rels
+        //  46 [main] DEBUG org.openxml4j.opc  - Parsing relationship: /_rels/.rels
+        // Added the call to setLevel() to turn these off, now I see nothing.
+
+        BasicConfigurator.configure();
+        Logger.getRootLogger().setLevel(Level.INFO);
 
         // The package open is instantaneous, as it should be.
-        try (OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ)) {
-            XLSX2CSV xlsx2csv = new XLSX2CSV(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("2.txt")), true), minColumns);
-            xlsx2csv.process();
-        }
+        OPCPackage p = OPCPackage.open(xlsxFile.getPath(), PackageAccess.READ);
+        Optional<Integer> firstRow = Optional.ofNullable(5);
+        Optional<Integer> lastRow = Optional.ofNullable(13);
+        Optional<String> sheetRegExp = Optional.ofNullable("");
+        XLSX2CSV xlsx2csv = new XLSX2CSV(p, new PrintStream(new BufferedOutputStream(new FileOutputStream("three_test.txt")), true), minColumns, firstRow, lastRow, sheetRegExp);
+        xlsx2csv.process();
+        // Want to call close() here, but the package is open for read,
+        // so it's not necessary, and it complains if I do call it!
+        p.revert();
     }
+
 }
