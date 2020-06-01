@@ -26,7 +26,7 @@ Optional<Integer> firstRow = Optional.ofNullable(null);
 Optional<Integer> lastRow = Optional.ofNullable(null);
 Optional<String> sheetRegExp = Optional.ofNullable(null);
 ```
-Работает. Обрабатываются все строки и листы в исходном xlsx файле.
+✔ Обрабатываются все строки и листы в исходном xlsx файле.
 
 * Целые числа, не выходящие из диапазона строк в исходном файле
 ```
@@ -34,7 +34,7 @@ Optional<Integer> firstRow = Optional.ofNullable(3);
 Optional<Integer> lastRow = Optional.ofNullable(9);
 Optional<String> sheetRegExp = Optional.ofNullable(null);
 ```
-Работает. Обрабатываются строки с 3 по 9 на всех листах исходного xlsx файла.
+✔ Обрабатываются строки с 3 по 9 на всех листах исходного xlsx файла.
 
 * Отрицательные числа
   * firstRow
@@ -43,11 +43,11 @@ Optional<String> sheetRegExp = Optional.ofNullable(null);
   Optional<Integer> lastRow = Optional.ofNullable(null);
   Optional<String> sheetRegExp = Optional.ofNullable(null);
   ```
-  Работает. Обрабатываются все строки и листы в исходном xlsx файле.
+  ✔ Обрабатываются все строки и листы в исходном xlsx файле.
   * lastRow
   ```
   Optional<Integer> firstRow = Optional.ofNullable(null);
   Optional<Integer> lastRow = Optional.ofNullable(-9);
   Optional<String> sheetRegExp = Optional.ofNullable(null);
   ```
-  Ни одна строка не обработалась, в полученном csv только названия листов
+  ✔ Ни одна строка не обработалась, в полученном csv только названия листов.
