@@ -20,6 +20,7 @@ C scientific, date, time все в порядке, а number и general, как 
 
 ## Тесты для опциальных параметров firstRow, lastRow, sheetRegExp (строки 402-404 класса XLSX2CSV)
 
+
 * все три null
 ```
 Optional<Integer> firstRow = Optional.ofNullable(null);
@@ -27,6 +28,7 @@ Optional<Integer> lastRow = Optional.ofNullable(null);
 Optional<String> sheetRegExp = Optional.ofNullable(null);
 ```
 ✔ Обрабатываются все строки и листы в исходном xlsx файле.
+
 
 * Целые числа, не выходящие из диапазона строк в исходном файле
 ```
@@ -36,7 +38,9 @@ Optional<String> sheetRegExp = Optional.ofNullable(null);
 ```
 ✔ Обрабатываются строки с 3 по 9 на всех листах исходного xlsx файла.
 
+
 * Отрицательные числа
+
   * firstRow
   ```
   Optional<Integer> firstRow = Optional.ofNullable(-9);
@@ -44,6 +48,7 @@ Optional<String> sheetRegExp = Optional.ofNullable(null);
   Optional<String> sheetRegExp = Optional.ofNullable(null);
   ```
   ✔ Обрабатываются все строки и листы в исходном xlsx файле.
+  
   * lastRow
   ```
   Optional<Integer> firstRow = Optional.ofNullable(null);
